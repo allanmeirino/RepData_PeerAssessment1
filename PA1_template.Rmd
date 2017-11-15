@@ -25,8 +25,8 @@ To do this, a new table was created, called *"sum_activity"*, which calculates t
 library(plyr)
 sum_activity <- ddply(activity, .(date), summarize,
                       sum_steps = sum(steps, na.rm = TRUE),
-                      mean_steps = mean(steps, na.rm = TRUE),
-                      median_steps = median(steps, na.rm = TRUE))
+                      mean_steps = mean(steps),
+                      median_steps = median(steps))
 str(sum_activity)
 ```
 
@@ -41,7 +41,7 @@ plot(sum_activity$date, log10(sum_activity$sum_steps),
      ylim = c(0, 4.9))
 lines(sum_activity$date, log10(sum_activity$mean_steps),
       col = "darkblue", lwd = 2)
-lines(sum_activity$date, sum_activity$median_steps,
+lines(sum_activity$date, log10(sum_activity$median_steps + 1),
       col = "darkred", lwd = 1)
 legend("topright", lty = 1, lwd = 2, col = c("darkblue", "darkred"),
        legend = c("Mean", "Median"), cex = 0.75)
@@ -53,10 +53,93 @@ This is because there are many observations per day, and more than half of them 
 
 ## What is the average daily activity pattern?
 
+To answer this question the following graph is presented, which expresses the average of steps determined by the interval of 5 minutes, calculated over all days of observation.
+
+```{r, echo = TRUE}
+avg_activity <- ddply(activity, .(interval), summarize, avg_steps = mean(steps, na.rm = TRUE))
+plot(avg_activity$interval, avg_activity$avg_steps, type = "l",
+     col = "darkgreen", lwd = 2,
+     main = "Avarege Steps per Interval",
+     xlab = "Avarege Steps", ylab = "Interval")
+```
+
+The graph clearly shows a peak between the 800 and 900 interval values, which corresponds to the period between 8 and 9 o'clock in the morning. This, therefore, can be understood as the period of the day where there is greater activity, according to the verified data.
 
 
 ## Imputing missing values
 
+In the next step, mean values of the steps for the interval corresponding to the unavailable step values (i.e. *"NA"* value) in the original table will be imputed, defining a new table named *"activity_noNA"*.
+
+```{r, echo = TRUE}
+activity_noNA <- activity
+for (i in c(1:nrow(activity_noNA))) {
+        if (is.na(activity_noNA[i, 1])) {
+                interval_value <- activity_noNA[i, 3]
+                ss_avg <- subset(avg_activity, interval == interval_value)
+                activity_noNA[i, 1] <- round(ss_avg[1, 2])
+        } 
+}
+str(activity_noNA)
+summary(activity_noNA$steps)
+```
+
+As you can see, there are no missing values in the new table.
+The total, average and median chart of steps per day will be repeated next, but using this new table with values imputed now.
+
+```{r, echo = TRUE}
+sum_activity <- ddply(activity_noNA, .(date), summarize,
+                      sum_steps = sum(steps),
+                      mean_steps = mean(steps),
+                      median_steps = median(steps))
+plot(sum_activity$date, log10(sum_activity$sum_steps),
+     type = "h", col = "darkgray", lwd = 8,
+     main = "Steps Taken per Day - Imputed Steps Table",
+     xlab = "Date", ylab = "Steps (base 10 log scale)",
+     ylim = c(0, 4.9))
+lines(sum_activity$date, log10(sum_activity$mean_steps),
+      col = "darkblue", lwd = 2)
+lines(sum_activity$date, log10(sum_activity$median_steps + 1),
+      col = "darkred", lwd = 1)
+legend("topright", lty = 1, lwd = 2, col = c("darkblue", "darkred"),
+       legend = c("Mean", "Median"), cex = 0.75)
+```
+
+The addition of the estimated values of steps in the missing registers considerably increased the mean of steps per day, as well as generated values different from 0 for medians that were not defined in the original table.
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+The chart below shows the average of steps per interval, differentiating the values by weekdays and weekdays.
+
+```{r, echo = TRUE}
+activity_noNA <- mutate(activity_noNA, w.day_w.end = weekdays(date))
+activity_noNA$w.day_w.end <- gsub("segunda-feira", "weekday",
+                                  activity_noNA$w.day_w.end)
+activity_noNA$w.day_w.end <- gsub("terça-feira", "weekday",
+                                  activity_noNA$w.day_w.end)
+activity_noNA$w.day_w.end <- gsub("quarta-feira", "weekday",
+                                  activity_noNA$w.day_w.end)
+activity_noNA$w.day_w.end <- gsub("quinta-feira", "weekday",
+                                  activity_noNA$w.day_w.end)
+activity_noNA$w.day_w.end <- gsub("sexta-feira", "weekday",
+                                  activity_noNA$w.day_w.end)
+activity_noNA$w.day_w.end <- gsub("sábado", "weekend",
+                                  activity_noNA$w.day_w.end)
+activity_noNA$w.day_w.end <- gsub("domingo", "weekend",
+                                  activity_noNA$w.day_w.end)
+activity_noNA$w.day_w.end <- as.factor(activity_noNA$w.day_w.end)
+avg_activity <- ddply(activity_noNA, .(interval, w.day_w.end),
+                      summarize, avg_steps = mean(steps))
+with(avg_activity, plot(interval, avg_steps,
+                        main = "Avarege Steps per Interval",
+                        xlab = "Avarege Steps", ylab = "Interval",
+                        type = "n"))
+with(subset(avg_activity, w.day_w.end == "weekday"),
+     lines(interval, avg_steps, col = "red", lwd = 2))
+with(subset(avg_activity, w.day_w.end == "weekend"),
+     lines(interval, avg_steps, col = "blue", lwd = 2))
+legend("topright", lty = 1, lwd = 2, col = c("red", "blue"),
+       legend = c("Weekdays", "Weekends"))
+```
+
+It can be seen that the averages on weekdays days are higher than on weekends, however, the activity during weekends, in general, is more spread throughout all the intervals of the day.
