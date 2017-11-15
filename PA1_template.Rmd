@@ -1,17 +1,54 @@
----
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
----
+# Reproducible Research: Peer Assessment 1
+**by Allan Meirino**
+
+This document aims to report the results of the analyzes performed on the data contained in the file *"activity.csv"*, as well as describe the methods and steps used to generate such results.
 
 
 ## Loading and preprocessing the data
 
+As an initial step, the method used to load and process the data of said file is presented, in order to adjust the data referring to the date of the observation in a pattern more suitable for carrying out the future analyzes.
+It was also included a summary of the data, after adjusted for the analysis.
+
+```{r, echo = TRUE}
+activity <- read.csv("activity.csv")
+activity$date <- as.Date(as.character(activity$date), "%Y-%m-%d")
+str(activity)
+```
 
 
 ## What is mean total number of steps taken per day?
 
+The total average of steps taken per day is calculated with the sum of all steps calculated on a day divided by the number of valid observations (i.e., descending values *"NA"*).
+To do this, a new table was created, called *"sum_activity"*, which calculates the sum of the steps each day, the average of the steps each day and also the median of steps each day, as described below:
+
+```{r, echo = TRUE}
+library(plyr)
+sum_activity <- ddply(activity, .(date), summarize,
+                      sum_steps = sum(steps, na.rm = TRUE),
+                      mean_steps = mean(steps, na.rm = TRUE),
+                      median_steps = median(steps, na.rm = TRUE))
+str(sum_activity)
+```
+
+As you can see, the new table is composed of 61 records that correspond to the days on which the original observations were made. The following histogram shows the sum of steps taken each day of observation, as well as the average steps each day and also the median value of steps each day.
+For clarity, due to the difference in order of magnitude of the values, the graph was placed on log 10 base scale.
+
+```{r, echo = TRUE}
+plot(sum_activity$date, log10(sum_activity$sum_steps),
+     type = "h", col = "darkgray", lwd = 8,
+     main = "Steps Taken per Day",
+     xlab = "Date", ylab = "Steps (base 10 log scale)",
+     ylim = c(0, 4.9))
+lines(sum_activity$date, log10(sum_activity$mean_steps),
+      col = "darkblue", lwd = 2)
+lines(sum_activity$date, sum_activity$median_steps,
+      col = "darkred", lwd = 1)
+legend("topright", lty = 1, lwd = 2, col = c("darkblue", "darkred"),
+       legend = c("Mean", "Median"), cex = 0.75)
+```
+
+The chart shows several days where the sum of steps exceeds the 4 mark, which means 10 ^ 4, or 10,000 steps. However, the mean value does not reach the 2 mark, which means 10 ^ 2 or 100 steps, while the median value remains at 0 for the entire time series.  
+This is because there are many observations per day, and more than half of them have a value equal to zero, making the median value 0 every day with valid observations. It means that, according to the calculated values, the observed devices spend most of the day at rest, with episodic movement periods. Makes sense.
 
 
 ## What is the average daily activity pattern?
